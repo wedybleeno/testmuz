@@ -6,32 +6,21 @@ import os from 'os';
 import axios from 'axios';
 
 // Ваш API токен для Telegram
-const TELEGRAM_TOKEN = '7501972161:AAGDX0q-vr0vNliiEUJfgRUMRiLZD1cCZK0';
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN; // Извлекаем токен из переменных окружения
 
 // Ваш ключ API YouTube
-const YOUTUBE_API_KEY = 'AIzaSyDAKMHnAusjct5viWo4STUm6PXL3UD0l0A';
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY; // Извлекаем ключ из переменных окружения
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
 
 // Путь к временной папке на Vercel
 const DOWNLOAD_DIR = path.join('/tmp', 'downloads');
 fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
-// Настройка логирования
-const log = (message) => {
-    console.log(`[${new Date().toISOString()}] ${message}`);
-};
-
-function sanitizeFilename(filename) {
-    return filename.replace(/[<>:"/\\|?*]/g, '_');
-}
-
 // Создание экземпляра бота
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: false });
+const bot = new TelegramBot(TELEGRAM_TOKEN);
 
 // Обработчик для Vercel
 export default async function handler(req, res) {
-    log('Received request:', req.body); // Логируем запрос
-
     if (req.method === 'POST') {
         const { body } = req;
 
@@ -43,7 +32,6 @@ export default async function handler(req, res) {
             // Команда /start
             if (msg.text === '/start') {
                 await bot.sendMessage(chatId, "Привет! Отправь мне название песни или исполнителя, и я найду её для тебя.");
-                return res.status(200).send('OK');
             }
 
             // Поиск видео на YouTube
@@ -67,44 +55,10 @@ export default async function handler(req, res) {
                     };
 
                     await bot.sendMessage(chatId, "Выберите один из вариантов:", keyboard);
-                    return res.status(200).send('OK');
                 } catch (err) {
                     await bot.sendMessage(chatId, `Ошибка при поиске: ${err.message}`);
-                    return res.status(200).send('OK');
                 }
             }
-        }
-
-        // Обработка нажатий на кнопки
-        if (body.callback_query) {
-            const query = body.callback_query;
-            const chatId = query.message.chat.id;
-            const { title, id: videoId } = JSON.parse(query.data);
-
-            const url = `https://www.youtube.com/watch?v=${videoId}`;
-            const tempFilePath = path.join(DOWNLOAD_DIR, `${sanitizeFilename(videoId)}.webm`);
-            const command = `yt-dlp -x --audio-format mp3 -o "${tempFilePath}" "${url}"`;
-
-            await execPromise(command)
-                .then(async () => {
-                    const newFilePath = tempFilePath.replace('.webm', '.mp3');
-
-                    if (fs.existsSync(newFilePath)) {
-                        const sanitizedTitle = sanitizeFilename(title);
-                        const finalFilePath = path.join(DOWNLOAD_DIR, `${sanitizedTitle}.mp3`);
-                        fs.renameSync(newFilePath, finalFilePath);
-
-                        await bot.sendDocument(chatId, finalFilePath, { filename: `${sanitizedTitle}.mp3`, caption: sanitizedTitle });
-                        fs.unlinkSync(finalFilePath); // Удаляем файл после отправки
-                        log(`Файл отправлен и удален: ${finalFilePath}`);
-                    } else {
-                        await bot.sendMessage(chatId, 'Ошибка при скачивании или конвертации файла.');
-                    }
-                })
-                .catch(async error => {
-                    log(`Ошибка при скачивании: ${error.message}`);
-                    await bot.sendMessage(chatId, `Ошибка при скачивании: ${error.message}`);
-                });
         }
 
         return res.status(200).send('OK');
@@ -113,16 +67,6 @@ export default async function handler(req, res) {
         res.status(405).end(`Method ${req.method} Not Allowed`);
     }
 }
-
-// Обернуть exec в Promise
-const execPromise = (command) => {
-    return new Promise((resolve, reject) => {
-        exec(command, (error) => {
-            if (error) reject(error);
-            else resolve();
-        });
-    });
-};
 
 // Функция поиска видео на YouTube
 async function searchYouTube(query) {
@@ -142,7 +86,7 @@ async function searchYouTube(query) {
             videoId: item.id.videoId
         }));
     } catch (error) {
-        log(`Ошибка при поиске: ${error}`);
         throw new Error('Ошибка при поиске видео на YouTube');
     }
 }
+
