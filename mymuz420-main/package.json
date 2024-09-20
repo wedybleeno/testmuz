@@ -1,0 +1,25 @@
+{
+
+  "name": "music-bot",
+
+  "version": "1.0.0",
+
+  "description": "Telegram bot for music downloads",
+
+  "author": "Vladislav Ponomarev <PonomareVlad@users.noreply.github.com>",
+
+  "license": "MIT",
+
+  "dependencies": {
+
+    "node-telegram-bot-api": "^0.50.0",
+
+    "axios": "^0.21.1",
+
+    "ytdl-core": "^4.9.1",
+
+    "telebot-vercel": "latest" 
+
+  }
+
+}
